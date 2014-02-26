@@ -66,26 +66,7 @@ func main() {
         log.Panic("error creating list file", err)
     }
 
-    var totalSize int
-
-    for _, flv := range flvs {
-        newflv := path.Join(tempdir, flv)
-        newflv = strings.Replace(newflv, "'", "", -1)
-
-        fmt.Println("fixing metadata for", flv)
-        cmd := exec.Command("/usr/local/bin/yamdi", "-i", flv, "-o", newflv)
-        _, err := cmd.CombinedOutput()
-        if err != nil {
-            log.Panic("error processing flv: ", err)
-        }
-
-        listline := "file '" + newflv + "'\n"
-        listfh.Write([]byte(listline))
-
-        stats, _ := os.Stat(newflv)
-        totalSize += int(stats.Size() / 1024)
-    }
-    listfh.Close()
+    totalSize := cleanupFLVs(flvs, tempdir, listfh)
 
     fmt.Println("joining...")
     cmd := exec.Command(
@@ -133,4 +114,26 @@ func getCommonFilename(names []string) string {
         }
     }
     return ""
+}
+
+func cleanupFLVs(flvs []string, tempdir string, listfh *os.File) (totalSize int) {
+    for _, flv := range flvs {
+        newflv := path.Join(tempdir, flv)
+        newflv = strings.Replace(newflv, "'", "", -1)
+
+        fmt.Println("fixing metadata for", flv)
+        cmd := exec.Command("/usr/local/bin/yamdi", "-i", flv, "-o", newflv)
+        _, err := cmd.CombinedOutput()
+        if err != nil {
+            log.Panic("error processing flv: ", err)
+        }
+
+        listline := "file '" + newflv + "'\n"
+        listfh.Write([]byte(listline))
+
+        stats, _ := os.Stat(newflv)
+        totalSize += int(stats.Size() / 1024)
+    }
+    listfh.Close()
+    return
 }
