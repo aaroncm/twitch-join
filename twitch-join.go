@@ -40,7 +40,7 @@ func main() {
     } else {
         outfn = common + "-JOINED.flv"
     }
-    fmt.Println("output filename: ", outfn)
+    fmt.Println("output filename:", outfn)
 
     tempdir, err := ioutil.TempDir("", "twitch-join")
     if err != nil {
@@ -100,7 +100,7 @@ func main() {
     if err != nil {
         log.Panic("error joining files: ", err)
     }
-    fmt.Println("moving to ", outfn)
+    fmt.Println("moving to", outfn)
     os.Rename(tempoutfn, outfn)
 }
 
