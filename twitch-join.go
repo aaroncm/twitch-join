@@ -27,18 +27,27 @@ func main() {
         }
     }()
 
+    // cmd line usage / args
+    flag.Usage = func() {
+        fmt.Println("Usage: twitch-join [-o output.flv] input1.flv input2.flv ...")
+        fmt.Println("   If output filename is not specified, it will be")
+        fmt.Println("   inferred from the input filenames.")
+    }
+    var outfn string
+    flag.StringVar(&outfn, "o", "", "output filename")
     flag.Parse()
     flvs := flag.Args()
     if len(flvs) == 0 {
-        log.Fatal("hey I need filenames")
+        log.Fatal("Please specify some input flvs (-h for usage)")
     }
 
-    common := getCommonFilename(flvs)
-    var outfn string
-    if len(common) == 0 {
-        outfn = "JOINED.flv"
-    } else {
-        outfn = common + "-JOINED.flv"
+    if outfn == "" {
+        common := getCommonFilename(flvs)
+        if len(common) == 0 {
+            outfn = "joined.flv"
+        } else {
+            outfn = common + "-joined.flv"
+        }
     }
     fmt.Println("output filename:", outfn)
 

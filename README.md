@@ -12,6 +12,6 @@ I often use [youtube-dl](https://github.com/rg3/youtube-dl) to download archived
 ## Usage
 `go get github.com/aaroncm/twitch-join`
 
-`twitch-join (filenames)`
+`twitch-join [-o output.flv] input1.flv input2.flv ...`
 
-Currently the output filename is determined automatically from the input filenames.
+If an output filename is not specified, one will be inferred from the common characters in the names of the input files. Lacking those, it will simply be `joined.flv`.
