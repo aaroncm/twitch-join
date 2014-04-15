@@ -77,40 +77,15 @@ func main() {
 
     totalSize := cleanupFLVs(flvs, tempdir, listfh)
 
-    fmt.Println("joining...")
-    cmd := exec.Command(
-        "ffmpeg",
-        "-f", "concat",
-        "-i", listfh.Name(),
-        "-c", "copy",
-        tempoutfn)
-
-    stderr, err := cmd.StderrPipe()
-    buf := bufio.NewReader(stderr)
-    cmd.Start()
-
-    bar := pb.StartNew(totalSize)
-
-    go func() {
-        for {
-            line, _ := buf.ReadString('\r')
-            if strings.HasPrefix(line, "frame=") {
-                fields := strings.Fields(line)
-                sizeStr := strings.TrimRight(fields[4], "kB")
-                size, _ := strconv.ParseInt(sizeStr, 10, 64)
-                bar.Set(int(size))
-            }
-        }
-    }()
-
-    err = cmd.Wait()
-    bar.Set(totalSize)
-    bar.Finish()
+    err = joinFLVs(listfh.Name(), tempoutfn, totalSize)
     if err != nil {
         log.Panic("error joining files: ", err)
     }
+
     fmt.Println("moving to", outfn)
-    os.Rename(tempoutfn, outfn)
+    if err = os.Rename(tempoutfn, outfn); err != nil {
+        log.Panic("error renaming file: ", err)
+    }
 }
 
 func getCommonFilename(names []string) string {
@@ -145,4 +120,43 @@ func cleanupFLVs(flvs []string, tempdir string, listfh *os.File) (totalSize int)
     }
     listfh.Close()
     return
+}
+
+func joinFLVs(listfn string, tempoutfn string, totalSize int) error {
+    fmt.Println("joining...")
+    cmd := exec.Command(
+        "ffmpeg",
+        "-f", "concat",
+        "-i", listfn,
+        "-c", "copy",
+        tempoutfn)
+
+    stderr, err := cmd.StderrPipe()
+    if err != nil {
+        return err
+    }
+    buf := bufio.NewReader(stderr)
+    if err = cmd.Start(); err != nil {
+        return err
+    }
+
+    bar := pb.StartNew(totalSize)
+
+    go func() {
+        for {
+            line, _ := buf.ReadString('\r')
+            if strings.HasPrefix(line, "frame=") {
+                fields := strings.Fields(line)
+                sizeStr := strings.TrimRight(fields[4], "kB")
+                size, _ := strconv.ParseInt(sizeStr, 10, 64)
+                bar.Set(int(size))
+            }
+        }
+    }()
+
+    err = cmd.Wait()
+    bar.Set(totalSize)
+    bar.Finish()
+
+    return err
 }
