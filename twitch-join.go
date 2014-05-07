@@ -18,6 +18,43 @@ import (
     "github.com/cheggaaa/pb"
 )
 
+var outfn string
+var flvs []string
+var tempdir string
+var listfh *os.File
+var err error
+
+func init() {
+    // cmd line usage / args
+    flag.Usage = func() {
+        fmt.Println("Usage: twitch-join [-o output.flv] input1.flv input2.flv ...")
+        fmt.Println("   If output filename is not specified, it will be")
+        fmt.Println("   inferred from the input filenames.")
+    }
+    flag.StringVar(&outfn, "o", "", "output filename")
+    flag.Parse()
+    flvs = flag.Args()
+    if len(flvs) == 0 {
+        log.Fatal("Please specify some input flvs (-h for usage)")
+    }
+
+    if outfn == "" {
+        outfn = getCommonFilename(flvs)
+    }
+    fmt.Println("output filename:", outfn)
+
+    // create temporary work area
+    tempdir, err = ioutil.TempDir("", "twitch-join")
+    if err != nil {
+        log.Fatal("error creating temp dir", err)
+    }
+    fmt.Println("created temp dir:", tempdir)
+
+    if listfh, err = ioutil.TempFile(tempdir, "list"); err != nil {
+        log.Panic("error creating list file", err)
+    }
+}
+
 func main() {
     // panic handler, deferred first so it fires after the cleanup defer
     defer func() {
@@ -26,38 +63,6 @@ func main() {
             os.Exit(1)
         }
     }()
-
-    // cmd line usage / args
-    flag.Usage = func() {
-        fmt.Println("Usage: twitch-join [-o output.flv] input1.flv input2.flv ...")
-        fmt.Println("   If output filename is not specified, it will be")
-        fmt.Println("   inferred from the input filenames.")
-    }
-    var outfn string
-    flag.StringVar(&outfn, "o", "", "output filename")
-    flag.Parse()
-    flvs := flag.Args()
-    if len(flvs) == 0 {
-        log.Fatal("Please specify some input flvs (-h for usage)")
-    }
-
-    if outfn == "" {
-        common := getCommonFilename(flvs)
-        if len(common) == 0 {
-            outfn = "joined.flv"
-        } else {
-            outfn = common + "-joined.flv"
-        }
-    }
-    fmt.Println("output filename:", outfn)
-
-    tempdir, err := ioutil.TempDir("", "twitch-join")
-    if err != nil {
-        log.Fatal("error creating temp dir", err)
-    }
-    fmt.Println("created temp dir:", tempdir)
-
-    defer os.RemoveAll(tempdir)
 
     // clean up tempdir in event of ctrl-c
     go func() {
@@ -68,17 +73,15 @@ func main() {
         panic("interrupted")
     }()
 
+    // also remove tempdir if things exit normally
+    defer os.RemoveAll(tempdir)
+
     tempoutfn := path.Join(tempdir, outfn)
 
-    listfh, err := ioutil.TempFile(tempdir, "list")
-    if err != nil {
-        log.Panic("error creating list file", err)
-    }
-
+    // size is needed for the progress bar, so calculate it while we go
     totalSize := cleanupFLVs(flvs, tempdir, listfh)
 
-    err = joinFLVs(listfh.Name(), tempoutfn, totalSize)
-    if err != nil {
+    if err = joinFLVs(listfh.Name(), tempoutfn, totalSize); err != nil {
         log.Panic("error joining files: ", err)
     }
 
@@ -94,10 +97,10 @@ func getCommonFilename(names []string) string {
     s2 := names[len(names)-1]
     for i := range s1 {
         if s1[i] != s2[i] {
-            return s1[:i]
+            return s1[:i] + "-joined.flv"
         }
     }
-    return ""
+    return "joined.flv"
 }
 
 func cleanupFLVs(flvs []string, tempdir string, listfh *os.File) (totalSize int) {
