@@ -64,17 +64,24 @@ func main() {
 		}
 	}()
 
+	removeTempdir := func() {
+		err := os.RemoveAll(tempdir)
+		if err != nil {
+			log.Println("couldn't remove tempdir:", tempdir)
+		}
+	}
+
 	// clean up tempdir in event of ctrl-c
 	go func() {
 		sigchan := make(chan os.Signal, 1)
 		signal.Notify(sigchan, os.Interrupt, syscall.SIGTERM)
 		<-sigchan
-		os.RemoveAll(tempdir)
+		removeTempdir()
 		panic("interrupted")
 	}()
 
 	// also remove tempdir if things exit normally
-	defer os.RemoveAll(tempdir)
+	defer removeTempdir()
 
 	tempoutfn := path.Join(tempdir, outfn)
 
@@ -116,12 +123,15 @@ func cleanupFLVs(flvs []string, tempdir string, listfh *os.File) (totalSize int)
 		}
 
 		listline := "file '" + newflv + "'\n"
-		listfh.Write([]byte(listline))
+		_, err = listfh.Write([]byte(listline))
+		if err != nil {
+			log.Fatal("error writing temp file:", err)
+		}
 
 		stats, _ := os.Stat(newflv)
 		totalSize += int(stats.Size() / 1024)
 	}
-	listfh.Close()
+	err = listfh.Close()
 	return
 }
 
