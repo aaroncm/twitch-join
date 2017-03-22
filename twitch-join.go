@@ -65,7 +65,7 @@ func main() {
 	}()
 
 	removeTempdir := func() {
-		err := os.RemoveAll(tempdir)
+		err = os.RemoveAll(tempdir)
 		if err != nil {
 			log.Println("couldn't remove tempdir:", tempdir)
 		}
@@ -117,7 +117,7 @@ func cleanupFLVs(flvs []string, tempdir string, listfh *os.File) (totalSize int)
 
 		fmt.Println("fixing metadata for", flv)
 		cmd := exec.Command("/usr/local/bin/yamdi", "-i", flv, "-o", newflv)
-		_, err := cmd.CombinedOutput()
+		_, err = cmd.CombinedOutput()
 		if err != nil {
 			log.Panic("error processing flv: ", err)
 		}
